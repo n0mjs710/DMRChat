@@ -39,10 +39,48 @@ TYPE_PRIVATE = 0x02
 TYPE_NAMES = {TYPE_GROUP: "GROUP", TYPE_PRIVATE: "PRIVATE"}
 
 # --- Address blocks --------------------------------------------------------
+#
+# MOTOTRBO addresses the RADIO on the CAI network (default 12) and the PC or
+# application attached to it on CAI+1 (default 13). That is why inbound frames
+# arrive from 13.<sender-radio-id>: the source is the far PC, not the far radio.
+#
+# It follows that a message meant for an application on the far end should be
+# addressed to 13.<target-radio-id>. Sending to 12.<target-radio-id> addresses
+# the radio itself, which will receive the data call over the air -- lighting
+# its RX indicator -- without ever handing it to the host behind it.
+#
+# Radios vary in how strictly they enforce this, so the prefixes are settable
+# at startup rather than baked in. See configure().
 
-PRIVATE_TX_PREFIX = 12    # outbound unicast DM       -> 12.a.b.c
-GROUP_TX_PREFIX = 225     # outbound room broadcast   -> 225.a.b.c
-SOURCE_RX_PREFIX = 13     # inbound source header     <- 13.a.b.c
+CAI_NETWORK = 12          # the radios themselves
+CAI_PC_NETWORK = 13       # PCs / applications attached to a radio
+CAI_GROUP_NETWORK = 225   # talkgroups
+
+PRIVATE_TX_PREFIX = CAI_PC_NETWORK   # outbound unicast DM     -> 13.a.b.c
+GROUP_TX_PREFIX = CAI_GROUP_NETWORK  # outbound room broadcast -> 225.a.b.c
+SOURCE_RX_PREFIX = CAI_PC_NETWORK    # inbound source header   <- 13.a.b.c
+
+
+def configure(private_tx=None, group_tx=None, source_rx=None):
+    """
+    Override the address blocks at startup.
+
+    Lets a station be pointed at the radio network (12) instead of the PC
+    network (13) for private targets without touching the code, since fleets
+    differ in how they are provisioned.
+    """
+    global PRIVATE_TX_PREFIX, GROUP_TX_PREFIX, SOURCE_RX_PREFIX
+    if private_tx is not None:
+        PRIVATE_TX_PREFIX = int(private_tx)
+    if group_tx is not None:
+        GROUP_TX_PREFIX = int(group_tx)
+    if source_rx is not None:
+        SOURCE_RX_PREFIX = int(source_rx)
+
+
+def addressing_summary():
+    return (f"DM -> {PRIVATE_TX_PREFIX}.x.x.x, group -> {GROUP_TX_PREFIX}.x.x.x, "
+            f"inbound source expected {SOURCE_RX_PREFIX}.x.x.x")
 
 RADIO_PORT = 50000
 HOST_NAT_ADDRESS = "192.168.10.2"

@@ -54,14 +54,28 @@ Packed with `struct` as `>B3s`. See [`dmrchat/protocol.py`](dmrchat/protocol.py)
 
 ## Addressing
 
+MOTOTRBO addresses the **radio** on the CAI network (12) and the **PC or
+application attached to it** on CAI+1 (13). That is why inbound frames arrive
+from `13.<sender-radio-id>` — the source is the far PC, not the far radio.
+
+It follows that a private message must be addressed to `13.<target-radio-id>`.
+Sending to `12.<target-radio-id>` addresses the radio itself: it receives the
+data call over the air and lights its RX indicator, but never hands the frame
+to the host behind it.
+
 | Direction | Kind    | Address                      |
 | --------- | ------- | ---------------------------- |
-| Outbound  | Private | `12.<radio-id>:50000`        |
+| Outbound  | Private | `13.<radio-id>:50000`        |
 | Outbound  | Group   | `225.<talkgroup-id>:50000`   |
 | Inbound   | Both    | from `13.<sender-radio-id>`  |
 
-IDs are 24-bit and map onto the low three octets, so radio `1111` is
-`12.0.4.87` and talkgroup `100` is `225.0.0.100`.
+IDs are 24-bit and map onto the low three octets, so radio `3120101` is
+`13.47.155.229` and talkgroup `100` is `225.0.0.100`.
+
+Fleets differ in how they are provisioned, so the blocks are settable at
+startup: `--dm-prefix`, `--tg-prefix`, `--src-prefix`. `--dm-prefix 12`
+addresses radios directly. `diagnose.py --addr <id>` prints the addresses
+derived from an id so you can compare them against one you can ping.
 
 A private frame files under its **sender**, not its target — the target is our
 own id and would make a useless conversation key. A group frame files under its
@@ -76,8 +90,13 @@ absent), derives the gateway as `192.168.10.1`, and injects:
 
 ```
 sudo route -n add -net 12.0.0.0/8 192.168.10.1
+sudo route -n add -net 13.0.0.0/8 192.168.10.1
 sudo route -n add -net 225.0.0.0/8 192.168.10.1
 ```
+
+The networks are derived from the addressing actually in use, not hardcoded —
+private messages go to the PC network, so a route for `12/8` alone would send
+every DM out the host's default route and off the radio entirely.
 
 If no interface matches, it prints `MOTOTRBO link not found. Please connect
 radio via USB.` and exits without touching anything.

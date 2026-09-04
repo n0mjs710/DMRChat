@@ -98,8 +98,8 @@ def main():
     # --- private DM ---
     bob.type("/dm 1111\r")
     time.sleep(0.5)
-    check("bob's DM view targets 12.0.4.87",
-          "12.0.4.87:50000" in bob.screen(), "expected 12.<1111> unicast target")
+    check("bob's DM view targets 13.0.4.87 (PC network)",
+          "13.0.4.87:50000" in bob.screen(), "expected 13.<1111> unicast target")
     bob.type("this is a private message\r")
     time.sleep(0.8)
 
@@ -118,8 +118,8 @@ def main():
     switched = alice.screen()
     check("private message renders after switching to the DM view",
           "this is a private message" in switched, switched[-300:])
-    check("DM view shows the 12.x.x.x unicast reply target",
-          "12.0.8.174:50000" in switched, "expected 12.<2222>")
+    check("DM view shows the 13.x.x.x unicast reply target",
+          "13.0.8.174:50000" in switched, "expected 13.<2222>")
 
     # --- input budget enforcement ---
     alice.type("X" * 500)

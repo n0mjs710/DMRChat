@@ -13,8 +13,32 @@ so the app never leaves stale entries behind in the kernel table.
 
 import subprocess
 
-RADIO_NETWORKS = ("12.0.0.0/8", "225.0.0.0/8")
+from . import protocol
+
 COMMAND_TIMEOUT = 30
+
+
+def radio_networks():
+    """
+    The networks that must point at the radio gateway, derived from the
+    addressing actually in use rather than hardcoded.
+
+    This matters: private messages are addressed to the PC network (13 by
+    default), so a route for 12/8 alone would send every DM out the host's
+    default route and off the radio entirely. The radio network is included
+    too -- it costs nothing and keeps ping/ARS to the radios themselves
+    working over the link.
+    """
+    octets = {
+        protocol.CAI_NETWORK,
+        protocol.PRIVATE_TX_PREFIX,
+        protocol.GROUP_TX_PREFIX,
+        protocol.SOURCE_RX_PREFIX,
+    }
+    return tuple(f"{octet}.0.0.0/8" for octet in sorted(octets))
+
+
+RADIO_NETWORKS = radio_networks()
 
 # route(8) says this when the entry we are adding is already present, or when
 # the entry we are deleting was never there. Neither is a failure for us.
@@ -41,9 +65,10 @@ class RouteResult:
 class RouteManager:
     """Adds the MOTOTRBO routes, remembers what it added, and removes exactly those."""
 
-    def __init__(self, gateway, networks=RADIO_NETWORKS, dry_run=False):
+    def __init__(self, gateway, networks=None, dry_run=False):
         self.gateway = gateway
-        self.networks = tuple(networks)
+        # Resolved at construction, not import, so --dm-prefix is reflected.
+        self.networks = tuple(networks if networks is not None else radio_networks())
         self.dry_run = dry_run
         self.installed = []       # networks we successfully routed, for teardown
         self.log = []

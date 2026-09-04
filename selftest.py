@@ -62,8 +62,8 @@ def test_header():
 
 def test_addressing():
     section("Address block mapping")
-    check("DM target -> 12.x.x.x",
-          protocol.target_address(protocol.TYPE_PRIVATE, 0x0A0B0C) == "12.10.11.12")
+    check("DM target -> 13.x.x.x (PC network, CAI+1)",
+          protocol.target_address(protocol.TYPE_PRIVATE, 0x0A0B0C) == "13.10.11.12")
     check("group target -> 225.x.x.x",
           protocol.target_address(protocol.TYPE_GROUP, 0x0A0B0C) == "225.10.11.12")
     check("sender id recovered from 13.x.x.x source",

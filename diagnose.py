@@ -174,15 +174,118 @@ def listen(seconds, own_id):
         print("   DMRChat filtered them out.")
 
 
+def show_addresses(ids):
+    """
+    Print the addresses this app derives from an id.
+
+    A radio id is a 24-bit number mapped onto the low three octets, the same
+    MOTOTRBO CAI convention the radio itself uses. If these do not match the
+    address you can successfully ping, the id in the app is not the id of the
+    radio you are aiming at -- which is the whole bug.
+    """
+    print("\n6. Address mapping")
+    for value in ids:
+        try:
+            radio_id = protocol.validate_id(value)
+        except protocol.ProtocolError as error:
+            print(BAD, error)
+            continue
+        dm = protocol.target_address(protocol.TYPE_PRIVATE, radio_id)
+        tg = protocol.target_address(protocol.TYPE_GROUP, radio_id)
+        src = protocol.source_address(radio_id)
+        print(f"   id {radio_id}:")
+        print(f"     as a DM target        -> {dm}:{protocol.RADIO_PORT}")
+        print(f"     as a talkgroup target -> {tg}:{protocol.RADIO_PORT}")
+        print(f"     inbound source would be  {src}")
+        print(f"     >> compare with:  ping {dm}")
+
+
+def probe(kind, target_id, count, own_id):
+    """Transmit test frames so they can be watched leaving on tcpdump."""
+    msg_type = protocol.TYPE_PRIVATE if kind == "dm" else protocol.TYPE_GROUP
+    destination = protocol.target_address(msg_type, target_id)
+
+    print(f"\n7. Transmit probe ({protocol.TYPE_NAMES[msg_type]})")
+    print(f"   Sending {count} frame(s) to {destination}:{protocol.RADIO_PORT}")
+    print(f"   Watch on this Mac with:")
+    print(f"     sudo tcpdump -ni <radio-iface> -vv 'udp port {protocol.RADIO_PORT} or icmp'")
+    print()
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if hasattr(socket, "SO_REUSEPORT"):
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 16)
+    try:
+        sock.bind(("0.0.0.0", protocol.RADIO_PORT))
+    except OSError as error:
+        print(BAD, f"cannot bind source port {protocol.RADIO_PORT}: {error}")
+        print("       ", "quit DMRChat first")
+        return
+
+    for index in range(1, count + 1):
+        text = f"probe {index} from {own_id or 'unknown'}"
+        frame = protocol.pack(msg_type, target_id, text)
+        try:
+            sock.sendto(frame, (destination, protocol.RADIO_PORT))
+        except OSError as error:
+            print(BAD, f"send failed: {error}")
+            break
+        source = sock.getsockname()
+        print(f"   [{index}] sent {len(frame)}B payload "
+              f"({len(frame) + protocol.IP_UDP_OVERHEAD}B on air) "
+              f"{source[0]}:{source[1]} -> {destination}:{protocol.RADIO_PORT}")
+        print(f"        header {frame[:4].hex(' ')}  body {text!r}")
+        time.sleep(1.0)
+    sock.close()
+
+    print("\n   If tcpdump shows these leaving but the far Mac sees nothing, the")
+    print("   frames are being dropped by the radio or over the air.")
+    print("   If tcpdump shows NOTHING here, they never left this host -- check the")
+    print("   source address above is on the radio interface, not another NIC.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Diagnose a station that transmits but does not receive.")
     parser.add_argument("--id", type=int, default=None,
                         help="the radio id this station is configured with, to test id filtering")
     parser.add_argument("--seconds", type=int, default=60, help="capture duration (default 60)")
+    parser.add_argument("--addr", type=int, nargs="+", metavar="ID",
+                        help="show the addresses derived from these ids and exit")
+    parser.add_argument("--probe-dm", type=int, metavar="ID",
+                        help="transmit test frames to a radio id, to watch on tcpdump")
+    parser.add_argument("--probe-tg", type=int, metavar="ID",
+                        help="transmit test frames to a talkgroup id")
+    parser.add_argument("--count", type=int, default=5, help="probe frames to send (default 5)")
+    parser.add_argument("--dm-prefix", type=int, default=None, metavar="N",
+                        help=f"first octet for private targets "
+                             f"(default {protocol.CAI_PC_NETWORK}; try 12 to address radios)")
+    parser.add_argument("--tg-prefix", type=int, default=None, metavar="N",
+                        help=f"first octet for group targets (default {protocol.CAI_GROUP_NETWORK})")
+    parser.add_argument("--src-prefix", type=int, default=None, metavar="N",
+                        help=f"expected inbound source octet (default {protocol.CAI_PC_NETWORK})")
     args = parser.parse_args()
+    protocol.configure(args.dm_prefix, args.tg_prefix, args.src_prefix)
 
     print("DMRChat link diagnostics")
     print("=" * 60)
+
+    # Address mapping and transmit probes are about the sending side, so they
+    # skip the inbound checks and the capture entirely.
+    if args.addr:
+        show_addresses(args.addr)
+        return 0
+    if args.probe_dm is not None or args.probe_tg is not None:
+        check_interface()
+        if args.probe_dm is not None:
+            show_addresses([args.probe_dm])
+            probe("dm", args.probe_dm, args.count, args.id)
+        else:
+            show_addresses([args.probe_tg])
+            probe("tg", args.probe_tg, args.count, args.id)
+        print("\nDone.")
+        return 0
+
     link = check_interface()
     check_routes(link)
     check_firewall()

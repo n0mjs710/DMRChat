@@ -103,6 +103,26 @@ def parse_args(argv=None):
         "--forget-id", action="store_true",
         help=f"ignore this Mac's saved radio id and ask again ({RADIO_ID_FILE})",
     )
+
+    addressing = parser.add_argument_group(
+        "addressing",
+        "MOTOTRBO puts radios on the CAI network (12) and attached PCs on CAI+1 "
+        "(13). Private messages default to 13 so they reach the application on "
+        "the far end rather than the radio itself. Use --dm-prefix 12 to address "
+        "radios directly if your fleet is provisioned that way.",
+    )
+    addressing.add_argument(
+        "--dm-prefix", type=int, default=None, metavar="N",
+        help=f"first octet for private targets (default {protocol.CAI_PC_NETWORK})",
+    )
+    addressing.add_argument(
+        "--tg-prefix", type=int, default=None, metavar="N",
+        help=f"first octet for group targets (default {protocol.CAI_GROUP_NETWORK})",
+    )
+    addressing.add_argument(
+        "--src-prefix", type=int, default=None, metavar="N",
+        help=f"expected first octet of inbound sources (default {protocol.CAI_PC_NETWORK})",
+    )
     return parser.parse_args(argv)
 
 
@@ -205,7 +225,9 @@ def _terminal_ready():
 
 def run(argv=None):
     args = parse_args(argv)
+    protocol.configure(args.dm_prefix, args.tg_prefix, args.src_prefix)
     print(BANNER)
+    print(f" Addressing: {protocol.addressing_summary()}")
     _install_signal_handlers()
 
     problem = _terminal_ready()
@@ -241,6 +263,7 @@ def run(argv=None):
         state = Session(radio_id)
         for note in notes:
             state.log(note)
+        state.log(f"Addressing: {protocol.addressing_summary()}")
         state.log(
             f"Station radio id {radio_id}; peers reach this station at "
             f"{protocol.target_address(protocol.TYPE_PRIVATE, radio_id)}:{protocol.RADIO_PORT}"
