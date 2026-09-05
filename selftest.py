@@ -64,8 +64,8 @@ def test_addressing():
     section("Address block mapping")
     check("DM target -> 13.x.x.x (PC network, CAI+1)",
           protocol.target_address(protocol.TYPE_PRIVATE, 0x0A0B0C) == "13.10.11.12")
-    check("group target -> 225.x.x.x",
-          protocol.target_address(protocol.TYPE_GROUP, 0x0A0B0C) == "225.10.11.12")
+    check("group target -> 226.x.x.x (PC group network, CAI+1)",
+          protocol.target_address(protocol.TYPE_GROUP, 0x0A0B0C) == "226.10.11.12")
     check("sender id recovered from 13.x.x.x source",
           protocol.sender_id_from_source_ip("13.10.11.12") == 0x0A0B0C)
     check("non-radio source rejected",
@@ -109,7 +109,7 @@ def test_demux():
     section("Inbound demultiplexing")
     state = session.Session(own_id=1001)
     room = state.open_view(session.KIND_TG, 100)
-    check("open view addresses the right block", room.address == "225.0.0.100:50000")
+    check("open view addresses the right block", room.address == "226.0.0.100:50000")
 
     class FakeInbound:
         def __init__(self, key, text, sender):
