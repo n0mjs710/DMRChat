@@ -199,9 +199,21 @@ class ChatUI:
         else:
             mode = f"LIVE {self.link.interface} gw {self.link.gateway}"
         left = f" DMRChat  RADIO {self.state.own_id}  {mode}"
+
+        # How long since the socket saw anything at all. On an intermittent link
+        # this is the number that matters -- it distinguishes "nobody is talking"
+        # from "the radio stopped forwarding to this host".
+        age = self.transport.age(self.transport.last_datagram_at)
+        if age is None:
+            heard = "last rx never"
+        elif age < 90:
+            heard = f"last rx {int(age)}s"
+        else:
+            heard = f"last rx {int(age // 60)}m"
+
         right = (
             f"tx {self.transport.sent_count}  rx {self.transport.recv_count}  "
-            f"drop {self.transport.dropped_count}  udp/{protocol.RADIO_PORT} "
+            f"drop {self.transport.dropped_count}  {heard}  udp/{protocol.RADIO_PORT} "
         )
         self._put(geo["status"], 0, left, attr)
         if len(left) + len(right) < geo["width"]:

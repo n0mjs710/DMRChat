@@ -89,6 +89,13 @@ class RadioTransport:
         self.recv_count = 0
         self.dropped_count = 0
 
+        # When the socket last saw ANY datagram, before filtering. This is the
+        # signal that matters for an intermittent link: it says whether the radio
+        # is still forwarding to this host at all, independent of whether the
+        # frame was one we would render.
+        self.last_datagram_at = None
+        self.last_sent_at = None
+
     # --- lifecycle ---------------------------------------------------------
 
     def open(self):
@@ -189,7 +196,12 @@ class RadioTransport:
             self.sock.sendto(frame, (destination, self.port))
 
         self.sent_count += 1
+        self.last_sent_at = time.time()
         return len(frame) + protocol.IP_UDP_OVERHEAD
+
+    def age(self, stamp):
+        """Seconds since ``stamp``, or None if it never happened."""
+        return None if stamp is None else time.time() - stamp
 
     # --- receive -----------------------------------------------------------
 
@@ -197,6 +209,9 @@ class RadioTransport:
         while not self._stop.is_set():
             try:
                 data, address = self.sock.recvfrom(RECV_BUFFER)
+                # Stamped before any filtering: proof the radio is still
+                # forwarding to this host, whatever the frame turns out to be.
+                self.last_datagram_at = time.time()
             except socket.timeout:
                 continue
             except OSError:
