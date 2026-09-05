@@ -13,7 +13,7 @@ import os
 import signal
 import sys
 
-from . import discovery, protocol, routing
+from . import config, discovery, protocol, routing
 from .session import KIND_DM, KIND_TG, Session
 from .transport import RadioTransport, TransportError
 from .ui import ChatUI
@@ -27,35 +27,11 @@ BANNER = r"""
 """
 
 
-# Deliberately under $HOME rather than in the project folder. A station's radio
-# id must match the radio physically attached to THAT Mac, so it is the one piece
-# of state that must never travel with the source -- a project folder shared over
-# iCloud would otherwise hand both Macs the same id.
-CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".dmrchat")
-RADIO_ID_FILE = os.path.join(CONFIG_DIR, "radio-id")
+RADIO_ID_FILE = config.RADIO_ID_FILE
 
 
 class Terminated(Exception):
     """Raised by the SIGTERM handler so teardown runs through the normal path."""
-
-
-def load_saved_radio_id():
-    """This Mac's remembered radio id, or None if never saved or unreadable."""
-    try:
-        with open(RADIO_ID_FILE) as handle:
-            return protocol.validate_id(handle.read().strip())
-    except (OSError, protocol.ProtocolError):
-        return None
-
-
-def save_radio_id(radio_id):
-    try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(RADIO_ID_FILE, "w") as handle:
-            handle.write(f"{radio_id}\n")
-        return True
-    except OSError:
-        return False        # not worth failing a launch over
 
 
 def _install_signal_handlers():
@@ -245,7 +221,7 @@ def run(argv=None):
     try:
         radio_id = args.radio_id
         if radio_id is None and not args.forget_id:
-            radio_id = load_saved_radio_id()
+            radio_id = config.load_radio_id()
             if radio_id is not None:
                 print(f"Using this Mac's saved radio id {radio_id} "
                       f"(override with --radio-id, or /id in the app).")
@@ -258,7 +234,7 @@ def run(argv=None):
         except protocol.ProtocolError as error:
             print(f"{error}")
             return 2
-        save_radio_id(radio_id)
+        config.save_radio_id(radio_id)
 
         state = Session(radio_id)
         for note in notes:

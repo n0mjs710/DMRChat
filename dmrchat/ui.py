@@ -17,7 +17,7 @@ through the transport's queue and is drained once per input tick.
 import curses
 import textwrap
 
-from . import protocol, session
+from . import config, protocol, session
 from .session import KIND_DM, KIND_TG, Message
 
 TICK_MS = 120           # input poll interval; also the inbound drain cadence
@@ -29,10 +29,10 @@ HINTS = "/tg <id>  /dm <id>  /close  /views  /id <n>  /help  /quit   TAB view   
 HELP_LINES = [
     "Commands:",
     "  /tg <id>      open or switch to a chat room (talkgroup, sent to 225.x.x.x)",
-    "  /dm <id>      open or switch to a private conversation (sent to 12.x.x.x)",
+    "  /dm <id>      open or switch to a private conversation (sent to 13.x.x.x)",
     "  /close        close the active view",
     "  /views        list open views",
-    "  /id <n>       show or change this station's radio id",
+    "  /id <n>       show or change this station's radio id (remembered)",
     "  /stats        transport counters and the PDU budget breakdown",
     "  /clear        clear the active view's scrollback",
     "  /help         this text",
@@ -499,6 +499,15 @@ class ChatUI:
                 f"Radio id set to {new_id}. Inbound DMs now match "
                 f"{protocol.target_address(protocol.TYPE_PRIVATE, new_id)}."
             )
+            # Persist the id actually in use, so the next launch comes back as
+            # this station rather than reverting to whatever was entered first.
+            if config.save_radio_id(new_id):
+                self.state.log("Remembered for next launch on this Mac.")
+            else:
+                self.state.log(
+                    f"Could not write {config.RADIO_ID_FILE}; this change lasts "
+                    f"only for this session.", error=True
+                )
 
         elif name == "stats":
             self.state.log(
