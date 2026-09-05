@@ -70,11 +70,13 @@ class TransportError(RuntimeError):
 class RadioTransport:
     """UDP endpoint on port 50000, live over the radio or simulated on loopback."""
 
-    def __init__(self, own_id, sim=False, port=protocol.RADIO_PORT, bind_address="0.0.0.0",
+    def __init__(self, own_id, sim=False, port=None, bind_address="0.0.0.0",
                  link_address=None):
         self.own_id = protocol.validate_id(own_id, "radio id")
         self.sim = sim
-        self.port = port
+        # Resolved here, not as a default argument: a default is bound when the
+        # function is defined, which is before configure() can change the port.
+        self.port = protocol.RADIO_PORT if port is None else port
         self.bind_address = bind_address
         self.link_address = link_address    # radio interface, for multicast egress
 

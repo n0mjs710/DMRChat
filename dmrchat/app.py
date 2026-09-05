@@ -99,6 +99,12 @@ def parse_args(argv=None):
         "--src-prefix", type=int, default=None, metavar="N",
         help=f"expected first octet of inbound sources (default {protocol.CAI_PC_NETWORK})",
     )
+    addressing.add_argument(
+        "--port", type=int, default=None, metavar="N",
+        help=f"UDP port for both directions (default {protocol.RADIO_PORT}). "
+             f"Radios can treat port ranges differently; avoid MOTOTRBO's own "
+             f"services on {', '.join(str(p) for p in sorted(protocol.RESERVED_PORTS))}.",
+    )
     return parser.parse_args(argv)
 
 
@@ -201,7 +207,7 @@ def _terminal_ready():
 
 def run(argv=None):
     args = parse_args(argv)
-    protocol.configure(args.dm_prefix, args.tg_prefix, args.src_prefix)
+    protocol.configure(args.dm_prefix, args.tg_prefix, args.src_prefix, args.port)
     print(BANNER)
     print(f" Addressing: {protocol.addressing_summary()}")
     _install_signal_handlers()

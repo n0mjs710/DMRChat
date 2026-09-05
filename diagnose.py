@@ -2,8 +2,8 @@
 """
 Link diagnostics for a station that transmits but does not receive.
 
-Checks the host-side conditions inbound frames depend on, then listens on UDP
-50000 and prints every datagram raw -- no filtering of any kind -- so you can
+Checks the host-side conditions inbound frames depend on, then listens on the
+radio UDP port and prints every datagram raw -- no filtering of any kind -- so you can
 see whether frames are missing entirely or arriving and being rejected.
 
     ./.venv/bin/python diagnose.py           # check, then listen 60s
@@ -18,7 +18,7 @@ import subprocess
 import sys
 import time
 
-from dmrchat import discovery, protocol
+from dmrchat import discovery, protocol, routing
 
 OK, WARN, BAD = "  [ok]  ", "  [warn]", "  [BAD] "
 
@@ -71,9 +71,11 @@ def route_present(table, first_octet, gateway):
 def check_routes(link):
     print("\n2. Kernel routes")
     table = run(["netstat", "-rn", "-f", "inet"])
-    for network, label in ((12, "12.0.0.0/8 (private DM)"), (225, "225.0.0.0/8 (group)")):
-        present = link and route_present(table, network, link.gateway)
-        print(OK if present else WARN, f"{label}: {'present' if present else 'NOT FOUND'}")
+    for network in routing.radio_networks():
+        octet = int(network.split(".")[0])
+        present = link and route_present(table, octet, link.gateway)
+        print(OK if present else WARN,
+              f"{network}: {'present' if present else 'NOT FOUND'}")
     if link:
         reachable = run(["ping", "-c", "1", "-W", "1500", link.gateway])
         alive = "1 packets received" in reachable or "1 received" in reachable
@@ -96,13 +98,16 @@ def check_firewall():
 
 
 def check_port():
-    print("\n4. UDP port 50000")
-    holders = run(["lsof", "-nP", "-iUDP:50000"])
+    port = protocol.RADIO_PORT
+    print(f"\n4. UDP port {port}")
+    if port in protocol.RESERVED_PORTS:
+        print(WARN, f"{port} is MOTOTRBO's {protocol.RESERVED_PORTS[port]} service port")
+    holders = run(["lsof", "-nP", f"-iUDP:{port}"])
     lines = [l for l in holders.splitlines() if l and not l.startswith("COMMAND")]
     if not lines:
-        print(OK, "nothing else is bound to 50000")
+        print(OK, f"nothing else is bound to {port}")
     else:
-        print(WARN, "port 50000 is already held -- quit DMRChat before capturing:")
+        print(WARN, f"port {port} is already held -- quit DMRChat before capturing:")
         for line in lines[:5]:
             print("        ", line[:100])
     return not lines
@@ -264,8 +269,10 @@ def main():
                         help=f"first octet for group targets (default {protocol.CAI_GROUP_NETWORK})")
     parser.add_argument("--src-prefix", type=int, default=None, metavar="N",
                         help=f"expected inbound source octet (default {protocol.CAI_PC_NETWORK})")
+    parser.add_argument("--port", type=int, default=None, metavar="N",
+                        help=f"UDP port to probe and listen on (default {protocol.RADIO_PORT})")
     args = parser.parse_args()
-    protocol.configure(args.dm_prefix, args.tg_prefix, args.src_prefix)
+    protocol.configure(args.dm_prefix, args.tg_prefix, args.src_prefix, args.port)
 
     print("DMRChat link diagnostics")
     print("=" * 60)

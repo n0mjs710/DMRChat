@@ -66,29 +66,42 @@ GROUP_TX_PREFIX = CAI_GROUP_NETWORK  # outbound room broadcast -> 225.a.b.c
 SOURCE_RX_PREFIX = CAI_PC_NETWORK    # inbound source header   <- 13.a.b.c
 
 
-def configure(private_tx=None, group_tx=None, source_rx=None):
+RADIO_PORT = 50000
+HOST_NAT_ADDRESS = "192.168.10.2"
+
+# MOTOTRBO reserves low ports for its own services -- ARS on 4005, TMS on 4007,
+# location on 4001 among them -- and firmware can treat port ranges differently.
+# Worth knowing when choosing an alternative to 50000.
+RESERVED_PORTS = {4001: "location", 4004: "telemetry", 4005: "ARS", 4007: "TMS"}
+
+
+def configure(private_tx=None, group_tx=None, source_rx=None, port=None):
     """
-    Override the address blocks at startup.
+    Override the address blocks and port at startup.
 
     Lets a station be pointed at the radio network (12) instead of the PC
     network (13) for private targets without touching the code, since fleets
-    differ in how they are provisioned.
+    differ in how they are provisioned. The port is settable for the same
+    reason: radios can treat port ranges differently.
     """
-    global PRIVATE_TX_PREFIX, GROUP_TX_PREFIX, SOURCE_RX_PREFIX
+    global PRIVATE_TX_PREFIX, GROUP_TX_PREFIX, SOURCE_RX_PREFIX, RADIO_PORT
     if private_tx is not None:
         PRIVATE_TX_PREFIX = int(private_tx)
     if group_tx is not None:
         GROUP_TX_PREFIX = int(group_tx)
     if source_rx is not None:
         SOURCE_RX_PREFIX = int(source_rx)
+    if port is not None:
+        port = int(port)
+        if not 1 <= port <= 65535:
+            raise ProtocolError(f"port must be 1-65535, got {port}")
+        RADIO_PORT = port
 
 
 def addressing_summary():
     return (f"DM -> {PRIVATE_TX_PREFIX}.x.x.x, group -> {GROUP_TX_PREFIX}.x.x.x, "
-            f"inbound source expected {SOURCE_RX_PREFIX}.x.x.x")
-
-RADIO_PORT = 50000
-HOST_NAT_ADDRESS = "192.168.10.2"
+            f"inbound source expected {SOURCE_RX_PREFIX}.x.x.x, "
+            f"UDP port {RADIO_PORT}")
 
 # byte 0 is the type, bytes 1-3 are the 24-bit target packed big-endian
 _HEADER = struct.Struct(">B3s")
