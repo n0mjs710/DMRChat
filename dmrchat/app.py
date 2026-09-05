@@ -273,7 +273,10 @@ def run(argv=None):
             f"{protocol.APP_HEADER_LEN}B app header = {protocol.MAX_BODY_BYTES}B of body text"
         )
 
-        transport = RadioTransport(radio_id, sim=args.sim)
+        transport = RadioTransport(
+            radio_id, sim=args.sim,
+            link_address=link.address if link is not None else None,
+        )
         try:
             transport.open()
         except TransportError as error:

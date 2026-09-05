@@ -30,7 +30,12 @@ def radio_networks():
     working over the link.
     """
     octets = {
+        # The stock blocks are always routed, even when an override is in use,
+        # so experimenting with a prefix never silently removes a working path.
         protocol.CAI_NETWORK,
+        protocol.CAI_PC_NETWORK,
+        protocol.CAI_GROUP_NETWORK,
+        # Plus whatever this station is actually addressing.
         protocol.PRIVATE_TX_PREFIX,
         protocol.GROUP_TX_PREFIX,
         protocol.SOURCE_RX_PREFIX,

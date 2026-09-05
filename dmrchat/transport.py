@@ -70,11 +70,13 @@ class TransportError(RuntimeError):
 class RadioTransport:
     """UDP endpoint on port 50000, live over the radio or simulated on loopback."""
 
-    def __init__(self, own_id, sim=False, port=protocol.RADIO_PORT, bind_address="0.0.0.0"):
+    def __init__(self, own_id, sim=False, port=protocol.RADIO_PORT, bind_address="0.0.0.0",
+                 link_address=None):
         self.own_id = protocol.validate_id(own_id, "radio id")
         self.sim = sim
         self.port = port
         self.bind_address = bind_address
+        self.link_address = link_address    # radio interface, for multicast egress
 
         self.inbox = queue.Queue()
         self.events = queue.Queue()      # transport-level notices for the UI log
@@ -110,6 +112,22 @@ class RadioTransport:
             # Group targets are multicast destinations routed via the radio
             # gateway, so give them enough TTL to survive the hop.
             self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 16)
+
+            # Unicast egress follows the routing table, but multicast egress does
+            # not have to: with IP_MULTICAST_IF unset the kernel chooses, and on
+            # a host with several interfaces it can pick the default route's NIC
+            # and send group traffic off the radio link entirely. Pin it.
+            if self.link_address:
+                try:
+                    self.sock.setsockopt(
+                        socket.IPPROTO_IP,
+                        socket.IP_MULTICAST_IF,
+                        socket.inet_aton(self.link_address),
+                    )
+                except OSError as error:
+                    self.events.put(
+                        f"could not pin multicast egress to {self.link_address}: {error}"
+                    )
 
         self.sock.settimeout(0.4)
         self._thread = threading.Thread(target=self._receive_loop, name="radio-rx", daemon=True)
