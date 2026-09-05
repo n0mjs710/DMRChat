@@ -63,22 +63,18 @@ Sending to `12.<target-radio-id>` addresses the radio itself: it receives the
 data call over the air and lights its RX indicator, but never hands the frame
 to the host behind it.
 
-Group traffic splits the same way: `225` addresses the talkgroup at the radios,
-`226` addresses it at the PCs attached to them. Groups therefore default to
-`226`, for the same reason DMs default to `13`.
-
 | Direction | Kind    | Address                      |
 | --------- | ------- | ---------------------------- |
 | Outbound  | Private | `13.<radio-id>:50000`        |
-| Outbound  | Group   | `226.<talkgroup-id>:50000`   |
+| Outbound  | Group   | `225.<talkgroup-id>:50000`   |
 | Inbound   | Both    | from `13.<sender-radio-id>`  |
 
 IDs are 24-bit and map onto the low three octets, so radio `3120101` is
-`13.47.155.229` and talkgroup `100` is `226.0.0.100`.
+`13.47.155.229` and talkgroup `100` is `225.0.0.100`.
 
 Fleets differ in how they are provisioned, so the blocks are settable at
-startup: `--dm-prefix`, `--tg-prefix`, `--src-prefix`. `--dm-prefix 12` and
-`--tg-prefix 225` address radios directly instead of their attached PCs. `diagnose.py --addr <id>` prints the addresses
+startup: `--dm-prefix`, `--tg-prefix`, `--src-prefix`. `--dm-prefix 12`
+addresses radios directly. `diagnose.py --addr <id>` prints the addresses
 derived from an id so you can compare them against one you can ping.
 
 A private frame files under its **sender**, not its target — the target is our
@@ -96,7 +92,6 @@ absent), derives the gateway as `192.168.10.1`, and injects:
 sudo route -n add -net 12.0.0.0/8 192.168.10.1
 sudo route -n add -net 13.0.0.0/8 192.168.10.1
 sudo route -n add -net 225.0.0.0/8 192.168.10.1
-sudo route -n add -net 226.0.0.0/8 192.168.10.1
 ```
 
 The networks are derived from the addressing actually in use, not hardcoded —
@@ -118,15 +113,15 @@ teardown runs from a `try/finally` around the entire session.
  1:TG 100   2:DM 2222*3
  14:22:07 <2222> message text, word-wrapped to the pane
  ...
- Chat Room -- Talkgroup 100  ->  226.0.0.100:50000 ------------------------------
+ Chat Room -- Talkgroup 100  ->  225.0.0.100:50000 ------------------------------
  > typing here                                                        [37/468B]
  /tg <id>  /dm <id>  /close  /views  /id <n>  /help  /quit   TAB view  PgUp scroll
 ```
 
 | Command | Effect |
 | --- | --- |
-| `/tg <id>` | open or switch to a chat room (transmits to `226.x.x.x`) |
-| `/dm <id>` | open or switch to a private conversation (transmits to `13.x.x.x`) |
+| `/tg <id>` | open or switch to a chat room (transmits to `225.x.x.x`) |
+| `/dm <id>` | open or switch to a private conversation (transmits to `12.x.x.x`) |
 | `/close` | close the active view |
 | `/views` | list open views with unread counts |
 | `/id <n>` | show or change this station's radio id |

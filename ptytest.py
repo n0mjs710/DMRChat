@@ -84,8 +84,8 @@ def main():
     bob.read(1.0)
 
     check("alice's UI drew the status bar", "DMRChat" in alice.screen() and "1111" in alice.screen())
-    check("chat room view opened on 226.0.0.100",
-          "226.0.0.100:50000" in bob.screen(), bob.screen()[-300:])
+    check("chat room view opened on 225.0.0.100",
+          "225.0.0.100:50000" in bob.screen(), bob.screen()[-300:])
     check("byte budget shown in the input field", "/468B]" in alice.screen())
 
     # --- group chat ---

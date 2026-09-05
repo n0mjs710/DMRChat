@@ -47,26 +47,23 @@ TYPE_NAMES = {TYPE_GROUP: "GROUP", TYPE_PRIVATE: "PRIVATE"}
 # It follows that a message meant for an application on the far end should be
 # addressed to 13.<target-radio-id>. Sending to 12.<target-radio-id> addresses
 # the radio itself, which will receive the data call over the air -- lighting
-# its RX indicator -- without ever handing it to the host behind it. Confirmed
-# on the air: private messages only reached the far application once they were
-# addressed to 13.
+# its RX indicator -- without ever handing it to the host behind it.
 #
-# Group traffic follows the same split: 225 addresses the talkgroup at the
-# radios, 226 addresses it at the PCs attached to them. A radio that forwards
-# private data to its PC but stays silent on groups is the same fault one layer
-# over, which is why groups default to 226.
+# Groups do NOT follow that pattern. 226 (the apparent CAI+1 analogue for
+# talkgroups) was tried on the air and broke group traffic entirely -- the
+# radios would not accept it as a group destination at all, which is a harder
+# failure than the one it was meant to fix. Groups stay on 225.
 #
 # Radios vary in how strictly they enforce this, so the prefixes are settable
 # at startup rather than baked in. See configure().
 
 CAI_NETWORK = 12             # the radios themselves
 CAI_PC_NETWORK = 13          # PCs / applications attached to a radio
-CAI_GROUP_NETWORK = 225      # talkgroups, addressed to the radios
-CAI_GROUP_PC_NETWORK = 226   # talkgroups, addressed to the attached PCs
+CAI_GROUP_NETWORK = 225      # talkgroups -- for both radios and attached PCs
 
-PRIVATE_TX_PREFIX = CAI_PC_NETWORK      # outbound unicast DM     -> 13.a.b.c
-GROUP_TX_PREFIX = CAI_GROUP_PC_NETWORK  # outbound room broadcast -> 226.a.b.c
-SOURCE_RX_PREFIX = CAI_PC_NETWORK       # inbound source header   <- 13.a.b.c
+PRIVATE_TX_PREFIX = CAI_PC_NETWORK   # outbound unicast DM     -> 13.a.b.c
+GROUP_TX_PREFIX = CAI_GROUP_NETWORK  # outbound room broadcast -> 225.a.b.c
+SOURCE_RX_PREFIX = CAI_PC_NETWORK    # inbound source header   <- 13.a.b.c
 
 
 def configure(private_tx=None, group_tx=None, source_rx=None):
